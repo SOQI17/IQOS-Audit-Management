@@ -474,6 +474,7 @@ export function ChecklistView({ state, setState }: ChecklistViewProps) {
         background: 'rgba(15,23,42,0.98)', backdropFilter: 'blur(16px)',
         borderTop: '1px solid rgba(255,255,255,0.08)',
         padding: '12px 16px',
+        paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
         display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px'
       }}>
         <button

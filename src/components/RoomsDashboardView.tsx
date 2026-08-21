@@ -49,59 +49,63 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
 
   return (
     <div style={{ background: 'linear-gradient(135deg,#0f172a 0%,#1e1b4b 50%,#0f172a 100%)', minHeight: '100%' }}>
-      <div style={{ maxWidth: '800px', margin: '0 auto', padding: '16px 16px 100px' }}>
+      <div style={{ maxWidth: '600px', margin: '0 auto', padding: '16px 16px 40px' }}>
 
-        {/* ── Back ── */}
-        {/* ── Top row: back + module + actions ── */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', gap: '10px' }}>
-          {/* Back button — visible pill */}
-          <button
-            onClick={() => setState(prev => ({ ...prev, view: 'dashboard' }))}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0,
-              background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
-              borderRadius: '999px', padding: '8px 14px',
-              cursor: 'pointer', color: '#cbd5e1', fontSize: '12px', fontWeight: 700
-            }}
-          >
-            <ArrowLeft style={{ width: '14px', height: '14px' }} />
-            Atrás
-          </button>
-          {/* Module ID */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+        {/* ── Row 1: Back button ── */}
+        <button
+          onClick={() => setState(prev => ({ ...prev, view: 'dashboard' }))}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px',
+            background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
+            borderRadius: '999px', padding: '8px 16px', marginBottom: '16px',
+            cursor: 'pointer', color: '#cbd5e1', fontSize: '12px', fontWeight: 700
+          }}
+        >
+          <ArrowLeft style={{ width: '14px', height: '14px' }} />
+          Atrás
+        </button>
+
+        {/* ── Row 2: Module header (full width, legible) ── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{
               background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-              borderRadius: '12px', width: '40px', height: '40px', flexShrink: 0,
+              borderRadius: '14px', width: '50px', height: '50px', flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 0 16px rgba(99,102,241,0.5)'
+              boxShadow: '0 0 20px rgba(99,102,241,0.5)'
             }}>
-              <BedDouble style={{ width: '20px', height: '20px', color: '#fff' }} />
+              <BedDouble style={{ width: '24px', height: '24px', color: '#fff' }} />
             </div>
-            <div style={{ minWidth: 0 }}>
-              <p style={{ fontSize: '9px', fontWeight: 800, color: '#818cf8', letterSpacing: '1px', textTransform: 'uppercase', margin: '0 0 1px' }}>Módulo 01</p>
-              <h1 style={{ fontSize: '18px', fontWeight: 900, color: '#f1f5f9', margin: 0, letterSpacing: '-0.3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Rooms Audit</h1>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+                <span style={{ fontSize: '10px', fontWeight: 800, color: '#818cf8', letterSpacing: '1.5px', textTransform: 'uppercase' }}>Módulo 01</span>
+                <span style={{ fontSize: '9px', fontWeight: 800, color: '#10b981', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '5px', padding: '1px 7px', textTransform: 'uppercase' }}>Activo</span>
+              </div>
+              <h1 style={{ fontSize: '22px', fontWeight: 900, color: '#f1f5f9', margin: 0, letterSpacing: '-0.3px' }}>
+                Rooms Audit
+              </h1>
+              <p style={{ fontSize: '11px', color: '#475569', margin: '2px 0 0', fontWeight: 500 }}>
+                Inspección de habitaciones, limpieza y amenidades
+              </p>
             </div>
           </div>
 
-          {/* Config + Nueva Auditoría */}
-          <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-            <button onClick={handleConfig}
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', width: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-              title="Configurar Checklist"
-            >
-              <Settings style={{ width: '16px', height: '16px', color: '#64748b' }} />
-            </button>
-            <button onClick={handleNewAudit}
-              style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '0 14px', height: '38px', borderRadius: '10px', border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', fontSize: '12px', fontWeight: 800, boxShadow: '0 4px 14px rgba(99,102,241,0.4)', whiteSpace: 'nowrap' }}
-            >
-              <Plus style={{ width: '15px', height: '15px' }} />
-              Nueva
-            </button>
-          </div>
+          {/* Config icon */}
+          <button
+            onClick={handleConfig}
+            style={{
+              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '12px', width: '40px', height: '40px', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
+            }}
+            title="Configurar Checklist"
+          >
+            <Settings style={{ width: '17px', height: '17px', color: '#475569' }} />
+          </button>
         </div>
 
-        {/* ── Mini KPIs 2×2 ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: '10px', marginBottom: '20px' }}>
+        {/* ── Row 3: KPIs 2×2 ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: '10px', marginBottom: '16px' }}>
           {[
             { label: 'Total', value: totalAudits, icon: <BarChart3 style={{ width: '16px', height: '16px', color: '#818cf8' }} />, rgb: '99,102,241' },
             { label: 'Aprobadas', value: passedAudits, icon: <CheckCircle2 style={{ width: '16px', height: '16px', color: '#10b981' }} />, rgb: '16,185,129' },
@@ -110,7 +114,7 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
           ].map((k, i) => (
             <div key={i} style={{
               background: `rgba(${k.rgb},0.08)`, border: `1px solid rgba(${k.rgb},0.2)`,
-              borderRadius: '14px', padding: '14px',
+              borderRadius: '14px', padding: '13px',
               display: 'flex', alignItems: 'center', gap: '10px'
             }}>
               <div style={{ background: `rgba(${k.rgb},0.15)`, borderRadius: '10px', width: '34px', height: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -124,13 +128,31 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
           ))}
         </div>
 
-        {/* ── Historial panel ── */}
-        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '18px', overflow: 'hidden', marginBottom: '16px' }}>
+        {/* ── Row 4: Nueva Auditoría — BIG visible button ── */}
+        <button
+          onClick={handleNewAudit}
+          style={{
+            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+            padding: '16px', borderRadius: '16px', border: 'none', cursor: 'pointer',
+            background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+            color: '#fff', fontSize: '15px', fontWeight: 800,
+            boxShadow: '0 6px 28px rgba(99,102,241,0.5)',
+            marginBottom: '20px', letterSpacing: '0.3px'
+          }}
+        >
+          <Plus style={{ width: '20px', height: '20px' }} />
+          Nueva Auditoría
+        </button>
 
+        {/* ── Row 5: Historial panel ── */}
+        <div style={{
+          background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)',
+          borderRadius: '18px', overflow: 'hidden'
+        }}>
           {/* Panel header + search */}
           <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-              <h2 style={{ fontSize: '14px', fontWeight: 800, color: '#f1f5f9', margin: 0 }}>Historial</h2>
+              <h2 style={{ fontSize: '14px', fontWeight: 800, color: '#f1f5f9', margin: 0 }}>Historial de Auditorías</h2>
               <span style={{
                 fontSize: '10px', fontWeight: 800, color: '#818cf8',
                 background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)',
@@ -139,7 +161,6 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
                 {filtered.length} reg.
               </span>
             </div>
-            {/* Search */}
             <div style={{ position: 'relative' }}>
               <Search style={{ width: '14px', height: '14px', color: '#475569', position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
               <input
@@ -159,15 +180,15 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
 
           {/* Empty */}
           {filtered.length === 0 ? (
-            <div style={{ padding: '60px 24px', textAlign: 'center' }}>
-              <div style={{ width: '64px', height: '64px', borderRadius: '18px', background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-                <BedDouble style={{ width: '28px', height: '28px', color: '#4338ca' }} />
+            <div style={{ padding: '50px 24px', textAlign: 'center' }}>
+              <div style={{ width: '60px', height: '60px', borderRadius: '18px', background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                <BedDouble style={{ width: '26px', height: '26px', color: '#4338ca' }} />
               </div>
-              <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#f1f5f9', margin: '0 0 6px' }}>
-                {searchQuery ? 'Sin resultados' : 'Sin auditorías'}
+              <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#f1f5f9', margin: '0 0 6px' }}>
+                {searchQuery ? 'Sin resultados' : 'Sin auditorías registradas'}
               </h3>
-              <p style={{ fontSize: '13px', color: '#475569', margin: '0 0 20px', lineHeight: 1.6 }}>
-                {searchQuery ? 'Intenta con otro término.' : 'Toca el botón para comenzar tu primera inspección.'}
+              <p style={{ fontSize: '12px', color: '#475569', margin: 0, lineHeight: 1.6 }}>
+                {searchQuery ? 'Intenta con otro término.' : 'Usa el botón "Nueva Auditoría" para comenzar.'}
               </p>
             </div>
           ) : (
@@ -176,23 +197,20 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
               const pass = audit.finalScore >= audit.maxScore * 0.8;
               const color = scoreColor(pct);
               return (
-                <div
-                  key={audit.id}
-                  style={{
-                    padding: '14px 16px',
-                    borderBottom: idx < filtered.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-                    display: 'flex', alignItems: 'center', gap: '14px'
-                  }}
-                >
+                <div key={audit.id} style={{
+                  padding: '14px 16px',
+                  borderBottom: idx < filtered.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                  display: 'flex', alignItems: 'center', gap: '13px'
+                }}>
                   {/* SVG donut */}
-                  <div style={{ flexShrink: 0, position: 'relative', width: '50px', height: '50px' }}>
-                    <svg width="50" height="50" viewBox="0 0 50 50" style={{ transform: 'rotate(-90deg)' }}>
-                      <circle cx="25" cy="25" r="19" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="4.5" />
-                      <circle cx="25" cy="25" r="19" fill="none" stroke={color} strokeWidth="4.5"
-                        strokeLinecap="round" strokeDasharray={`${(pct / 100) * 119.4} 119.4`} />
+                  <div style={{ flexShrink: 0, position: 'relative', width: '48px', height: '48px' }}>
+                    <svg width="48" height="48" viewBox="0 0 48 48" style={{ transform: 'rotate(-90deg)' }}>
+                      <circle cx="24" cy="24" r="18" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="4" />
+                      <circle cx="24" cy="24" r="18" fill="none" stroke={color} strokeWidth="4"
+                        strokeLinecap="round" strokeDasharray={`${(pct / 100) * 113.1} 113.1`} />
                     </svg>
                     <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <span style={{ fontSize: '11px', fontWeight: 900, color, lineHeight: 1 }}>{pct}%</span>
+                      <span style={{ fontSize: '10px', fontWeight: 900, color, lineHeight: 1 }}>{pct}%</span>
                     </div>
                   </div>
 
@@ -228,10 +246,10 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
 
                   {/* Score */}
                   <div style={{ flexShrink: 0, textAlign: 'right' }}>
-                    <p style={{ fontSize: '22px', fontWeight: 900, color, margin: '0 0 3px', lineHeight: 1 }}>
-                      {audit.finalScore}<span style={{ fontSize: '12px', color: '#475569' }}>/{audit.maxScore}</span>
+                    <p style={{ fontSize: '22px', fontWeight: 900, color, margin: '0 0 2px', lineHeight: 1 }}>
+                      {audit.finalScore}<span style={{ fontSize: '11px', color: '#334155' }}>/{audit.maxScore}</span>
                     </p>
-                    <p style={{ fontSize: '9px', color: '#475569', fontWeight: 600, margin: 0 }}>
+                    <p style={{ fontSize: '9px', color: '#334155', fontWeight: 600, margin: 0 }}>
                       {pct >= 90 ? 'Excelente' : pct >= 75 ? 'Aceptable' : 'Deficiente'}
                     </p>
                   </div>

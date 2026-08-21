@@ -142,7 +142,7 @@ export default function App() {
 
   return (
     <div
-      style={{ height: '100vh', display: 'flex', flexDirection: 'column', fontFamily: "'Inter', system-ui, sans-serif", background: '#0f172a', overflow: 'hidden' }}
+      style={{ height: '100%', display: 'flex', flexDirection: 'column', fontFamily: "'Inter', system-ui, sans-serif", background: '#0f172a', overflow: 'hidden' }}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
