@@ -52,52 +52,52 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
       <div style={{ maxWidth: '800px', margin: '0 auto', padding: '16px 16px 100px' }}>
 
         {/* ── Back ── */}
-        <button
-          onClick={() => setState(prev => ({ ...prev, view: 'dashboard' }))}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '5px',
-            background: 'transparent', border: 'none', cursor: 'pointer',
-            color: '#64748b', fontSize: '11px', fontWeight: 700,
-            letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '16px', padding: 0
-          }}
-        >
-          <ArrowLeft style={{ width: '13px', height: '13px' }} />
-          Volver
-        </button>
-
-        {/* ── Module header ── */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* ── Top row: back + module + actions ── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', gap: '10px' }}>
+          {/* Back button — visible pill */}
+          <button
+            onClick={() => setState(prev => ({ ...prev, view: 'dashboard' }))}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0,
+              background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
+              borderRadius: '999px', padding: '8px 14px',
+              cursor: 'pointer', color: '#cbd5e1', fontSize: '12px', fontWeight: 700
+            }}
+          >
+            <ArrowLeft style={{ width: '14px', height: '14px' }} />
+            Atrás
+          </button>
+          {/* Module ID */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
             <div style={{
               background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-              borderRadius: '14px', width: '46px', height: '46px',
+              borderRadius: '12px', width: '40px', height: '40px', flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 0 20px rgba(99,102,241,0.5)', flexShrink: 0
+              boxShadow: '0 0 16px rgba(99,102,241,0.5)'
             }}>
-              <BedDouble style={{ width: '22px', height: '22px', color: '#fff' }} />
+              <BedDouble style={{ width: '20px', height: '20px', color: '#fff' }} />
             </div>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
-                <span style={{ fontSize: '10px', fontWeight: 800, color: '#818cf8', letterSpacing: '1px', textTransform: 'uppercase' }}>Módulo 01</span>
-                <span style={{ fontSize: '9px', fontWeight: 800, color: '#10b981', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '5px', padding: '1px 6px', textTransform: 'uppercase' }}>Activo</span>
-              </div>
-              <h1 style={{ fontSize: '22px', fontWeight: 900, color: '#f1f5f9', margin: 0, letterSpacing: '-0.3px' }}>Rooms Audit</h1>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ fontSize: '9px', fontWeight: 800, color: '#818cf8', letterSpacing: '1px', textTransform: 'uppercase', margin: '0 0 1px' }}>Módulo 01</p>
+              <h1 style={{ fontSize: '18px', fontWeight: 900, color: '#f1f5f9', margin: 0, letterSpacing: '-0.3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Rooms Audit</h1>
             </div>
           </div>
 
-          {/* Config icon button */}
-          <button
-            onClick={handleConfig}
-            style={{
-              background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '12px', width: '42px', height: '42px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', flexShrink: 0
-            }}
-            title="Configurar Checklist"
-          >
-            <Settings style={{ width: '18px', height: '18px', color: '#64748b' }} />
-          </button>
+          {/* Config + Nueva Auditoría */}
+          <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+            <button onClick={handleConfig}
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', width: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              title="Configurar Checklist"
+            >
+              <Settings style={{ width: '16px', height: '16px', color: '#64748b' }} />
+            </button>
+            <button onClick={handleNewAudit}
+              style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '0 14px', height: '38px', borderRadius: '10px', border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', fontSize: '12px', fontWeight: 800, boxShadow: '0 4px 14px rgba(99,102,241,0.4)', whiteSpace: 'nowrap' }}
+            >
+              <Plus style={{ width: '15px', height: '15px' }} />
+              Nueva
+            </button>
+          </div>
         </div>
 
         {/* ── Mini KPIs 2×2 ── */}
@@ -240,28 +240,6 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
             })
           )}
         </div>
-      </div>
-
-      {/* ── FAB Nueva Auditoría ── */}
-      <div style={{
-        position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
-        zIndex: 40
-      }}>
-        <button
-          onClick={handleNewAudit}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '8px',
-            padding: '14px 28px', borderRadius: '999px', cursor: 'pointer',
-            background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-            border: '1px solid rgba(99,102,241,0.5)',
-            color: '#fff', fontSize: '13px', fontWeight: 700, letterSpacing: '0.5px',
-            boxShadow: '0 8px 32px rgba(99,102,241,0.55)',
-            whiteSpace: 'nowrap'
-          }}
-        >
-          <Plus style={{ width: '18px', height: '18px' }} />
-          Nueva Auditoría
-        </button>
       </div>
     </div>
   );
