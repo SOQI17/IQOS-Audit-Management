@@ -6,6 +6,41 @@ import {
 } from 'lucide-react';
 import { saveAuditToCloud } from '../lib/firebase';
 
+// ─────────────────────────────────────────────────────────
+// Compress image before upload: max 1280px, JPEG 75% quality
+// Reduces a 5 MB phone photo to ~150–300 KB  →  10× faster upload
+// ─────────────────────────────────────────────────────────
+const MAX_PX = 1280;   // max dimension (width or height)
+const QUALITY = 0.75;  // JPEG quality 0–1
+
+function compressImage(file: File): Promise<{ dataUrl: string; blob: Blob }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      // Calculate new dimensions keeping aspect ratio
+      let { width, height } = img;
+      if (width > MAX_PX || height > MAX_PX) {
+        if (width >= height) { height = Math.round((height / width) * MAX_PX); width = MAX_PX; }
+        else                 { width  = Math.round((width / height) * MAX_PX); height = MAX_PX; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width  = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL('image/jpeg', QUALITY);
+      canvas.toBlob(
+        blob => blob ? resolve({ dataUrl, blob }) : reject(new Error('Canvas toBlob failed')),
+        'image/jpeg', QUALITY
+      );
+    };
+    img.onerror = reject;
+    img.src = objectUrl;
+  });
+}
+
 interface ChecklistViewProps {
   state: AppState;
   setState: React.Dispatch<React.SetStateAction<AppState>>;
@@ -189,16 +224,18 @@ export function ChecklistView({ state, setState }: ChecklistViewProps) {
   };
 
   const handlePhotoFile = async (itemId: string, file: File) => {
-    // Show preview instantly — don't wait for upload
-    const reader = new FileReader();
-    reader.onloadend = () => updateItemState(itemId, { photoBase64: reader.result as string });
-    reader.readAsDataURL(file);
-
-    // Upload silently in background
-    setUploadingItems(prev => ({ ...prev, [itemId]: true }));
     try {
+      // 1. Compress first (canvas resize + JPEG 75%) — instant on device
+      const { dataUrl, blob } = await compressImage(file);
+
+      // 2. Show preview immediately with compressed image
+      updateItemState(itemId, { photoBase64: dataUrl });
+
+      // 3. Upload compressed blob to Cloudinary in background
+      setUploadingItems(prev => ({ ...prev, [itemId]: true }));
+      const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' });
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', compressedFile);
       formData.append('upload_preset', import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'qaudit_preset');
       const res = await fetch('https://api.cloudinary.com/v1_1/eztjzc2k/image/upload', { method: 'POST', body: formData });
       if (res.ok) {
@@ -206,7 +243,11 @@ export function ChecklistView({ state, setState }: ChecklistViewProps) {
         updateItemState(itemId, { photoUrl: data.secure_url });
       }
     } catch (err) {
-      console.warn('Cloudinary upload failed (photo still saved locally):', err);
+      console.warn('Photo processing/upload error:', err);
+      // Fallback: use original file without compression
+      const reader = new FileReader();
+      reader.onloadend = () => updateItemState(itemId, { photoBase64: reader.result as string });
+      reader.readAsDataURL(file);
     } finally {
       setUploadingItems(prev => ({ ...prev, [itemId]: false }));
     }
