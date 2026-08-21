@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { AppState, SavedAudit } from '../types';
 import {
   ArrowLeft, Plus, Settings, Calendar, BedDouble,
   User, Building2, CheckCircle2, AlertTriangle,
-  Clock, BarChart3, Search
+  Clock, BarChart3, Search, Upload, FileSpreadsheet, Check
 } from 'lucide-react';
+import { parseMasterMatrixCSV } from '../lib/excelImporter';
 
 interface RoomsDashboardViewProps {
   state: AppState;
@@ -12,7 +13,9 @@ interface RoomsDashboardViewProps {
 }
 
 export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps) {
-  const [searchQuery, setSearchQuery] = React.useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [importNotice, setImportNotice] = useState<string | null>(null);
+  const excelInputRef = useRef<HTMLInputElement>(null);
 
   const handleNewAudit = () => {
     setState(prev => ({
@@ -23,6 +26,43 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
   };
 
   const handleConfig = () => setState(prev => ({ ...prev, view: 'config' }));
+
+  const handleExcelImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const content = evt.target?.result as string;
+      const { config, audits, totalAuditsImported, totalItemsCount, error } = parseMasterMatrixCSV(content);
+
+      if (error) {
+        alert(error);
+        return;
+      }
+
+      setState(prev => {
+        // Merge imported audits with existing ones, preventing exact duplicate IDs
+        const existingIds = new Set(prev.savedAudits.map(a => a.id));
+        const newAudits = audits.filter(a => !existingIds.has(a.id));
+        const updatedSaved = [...newAudits, ...prev.savedAudits].sort((a, b) => b.timestamp - a.timestamp);
+
+        // Update config if valid items found
+        const updatedConfig = config.length > 0 ? config : prev.config;
+
+        return {
+          ...prev,
+          config: updatedConfig,
+          savedAudits: updatedSaved
+        };
+      });
+
+      setImportNotice(`¡Carga exitosa! Se importaron ${totalAuditsImported} auditorías completas y ${totalItemsCount} ítems del Excel.`);
+      setTimeout(() => setImportNotice(null), 6000);
+    };
+    reader.readAsText(file, 'UTF-8');
+    e.target.value = '';
+  };
 
   const { savedAudits } = state;
   const totalAudits = savedAudits.length;
@@ -40,7 +80,9 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
       const q = searchQuery.toLowerCase();
       return !q || a.roomNumber.toLowerCase().includes(q)
         || a.auditorName.toLowerCase().includes(q)
-        || a.hotelName.toLowerCase().includes(q);
+        || a.hotelName.toLowerCase().includes(q)
+        || a.roomAttendant.toLowerCase().includes(q)
+        || a.supervisor.toLowerCase().includes(q);
     })
     .sort((a, b) => b.timestamp - a.timestamp);
 
@@ -50,6 +92,15 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
   return (
     <div style={{ background: 'linear-gradient(135deg,#0f172a 0%,#1e1b4b 50%,#0f172a 100%)', minHeight: '100%' }}>
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '16px 16px 40px' }}>
+
+        {/* Hidden File Input for Excel/CSV */}
+        <input
+          ref={excelInputRef}
+          type="file"
+          accept=".csv,text/csv,application/vnd.ms-excel"
+          onChange={handleExcelImport}
+          style={{ display: 'none' }}
+        />
 
         {/* ── Row 1: Back button ── */}
         <button
@@ -65,7 +116,7 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
           Atrás
         </button>
 
-        {/* ── Row 2: Module header (full width, legible) ── */}
+        {/* ── Row 2: Module header ── */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{
@@ -90,7 +141,6 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
             </div>
           </div>
 
-          {/* Config icon */}
           <button
             onClick={handleConfig}
             style={{
@@ -103,6 +153,18 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
             <Settings style={{ width: '17px', height: '17px', color: '#475569' }} />
           </button>
         </div>
+
+        {/* ── Notice Banner upon Excel import ── */}
+        {importNotice && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 14px',
+            borderRadius: '12px', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.35)',
+            color: '#34d399', fontSize: '12px', fontWeight: 700, marginBottom: '16px'
+          }}>
+            <Check style={{ width: '16px', height: '16px', flexShrink: 0 }} />
+            {importNotice}
+          </div>
+        )}
 
         {/* ── Row 3: KPIs 2×2 ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: '10px', marginBottom: '16px' }}>
@@ -128,21 +190,35 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
           ))}
         </div>
 
-        {/* ── Row 4: Nueva Auditoría — BIG visible button ── */}
-        <button
-          onClick={handleNewAudit}
-          style={{
-            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-            padding: '16px', borderRadius: '16px', border: 'none', cursor: 'pointer',
-            background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-            color: '#fff', fontSize: '15px', fontWeight: 800,
-            boxShadow: '0 6px 28px rgba(99,102,241,0.5)',
-            marginBottom: '20px', letterSpacing: '0.3px'
-          }}
-        >
-          <Plus style={{ width: '20px', height: '20px' }} />
-          Nueva Auditoría
-        </button>
+        {/* ── Row 4: Action Buttons ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
+          <button
+            onClick={handleNewAudit}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+              padding: '15px', borderRadius: '14px', border: 'none', cursor: 'pointer',
+              background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+              color: '#fff', fontSize: '13px', fontWeight: 800,
+              boxShadow: '0 6px 20px rgba(99,102,241,0.45)', whiteSpace: 'nowrap'
+            }}
+          >
+            <Plus style={{ width: '18px', height: '18px' }} />
+            Nueva Auditoría
+          </button>
+
+          <button
+            onClick={() => excelInputRef.current?.click()}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+              padding: '15px', borderRadius: '14px', cursor: 'pointer',
+              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+              color: '#cbd5e1', fontSize: '13px', fontWeight: 700, whiteSpace: 'nowrap'
+            }}
+          >
+            <FileSpreadsheet style={{ width: '18px', height: '18px', color: '#818cf8' }} />
+            Cargar Excel (CSV)
+          </button>
+        </div>
 
         {/* ── Row 5: Historial panel ── */}
         <div style={{
@@ -165,7 +241,7 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
               <Search style={{ width: '14px', height: '14px', color: '#475569', position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
               <input
                 type="search"
-                placeholder="Buscar habitación, auditor..."
+                placeholder="Buscar habitación, auditor, camarera..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 style={{
@@ -188,7 +264,7 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
                 {searchQuery ? 'Sin resultados' : 'Sin auditorías registradas'}
               </h3>
               <p style={{ fontSize: '12px', color: '#475569', margin: 0, lineHeight: 1.6 }}>
-                {searchQuery ? 'Intenta con otro término.' : 'Usa el botón "Nueva Auditoría" para comenzar.'}
+                {searchQuery ? 'Intenta con otro término.' : 'Usa "Cargar Excel" para importar tu matriz con todas tus auditorías pasadas.'}
               </p>
             </div>
           ) : (
@@ -232,14 +308,12 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#475569' }}>
-                        <Building2 style={{ width: '11px', height: '11px' }} />{audit.hotelName}
-                      </span>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#475569' }}>
-                        <User style={{ width: '11px', height: '11px' }} />{audit.auditorName}
+                        <User style={{ width: '11px', height: '11px' }} />
+                        Camarera: {audit.roomAttendant || audit.auditorName}
                       </span>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#475569' }}>
                         <Calendar style={{ width: '11px', height: '11px' }} />
-                        {new Date(audit.timestamp).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
+                        {audit.date}
                       </span>
                     </div>
                   </div>
