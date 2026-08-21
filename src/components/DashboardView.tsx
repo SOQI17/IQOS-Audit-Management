@@ -14,6 +14,23 @@ export function DashboardView({ state, setState }: DashboardViewProps) {
   const { savedAudits } = state;
   const totalAudits = savedAudits.length;
 
+  const handleViewAuditDetails = (savedAudit: any) => {
+    setState(prev => ({
+      ...prev,
+      view: 'report',
+      audit: {
+        hotelName: savedAudit.hotelName,
+        roomNumber: savedAudit.roomNumber,
+        auditorName: savedAudit.auditorName,
+        roomAttendant: savedAudit.roomAttendant,
+        supervisor: savedAudit.supervisor,
+        date: savedAudit.date,
+        maxScore: savedAudit.maxScore,
+        itemStates: savedAudit.itemStates
+      }
+    }));
+  };
+
   const avgScore = totalAudits > 0
     ? Math.round(savedAudits.reduce((acc, curr) => acc + curr.finalScore, 0) / totalAudits)
     : 0;
@@ -234,11 +251,16 @@ export function DashboardView({ state, setState }: DashboardViewProps) {
                 const pass = audit.finalScore >= audit.maxScore * 0.8;
                 const color = scoreColor(pct);
                 return (
-                  <div key={audit.id} style={{
-                    padding: '14px 16px',
-                    borderBottom: idx < recentAudits.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-                    display: 'flex', alignItems: 'center', gap: '12px'
-                  }}>
+                  <div
+                    key={audit.id}
+                    onClick={() => handleViewAuditDetails(audit)}
+                    style={{
+                      padding: '14px 16px',
+                      borderBottom: idx < recentAudits.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                      display: 'flex', alignItems: 'center', gap: '12px',
+                      cursor: 'pointer'
+                    }}
+                  >
                     <div style={{
                       width: '42px', height: '42px', borderRadius: '12px', flexShrink: 0,
                       background: pass ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',

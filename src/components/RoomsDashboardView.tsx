@@ -3,7 +3,7 @@ import { AppState, SavedAudit } from '../types';
 import {
   ArrowLeft, Plus, Settings, Calendar, BedDouble,
   User, Building2, CheckCircle2, AlertTriangle,
-  Clock, BarChart3, Search, Upload, FileSpreadsheet, Check
+  Clock, BarChart3, Search, FileSpreadsheet, Check, ChevronRight
 } from 'lucide-react';
 import { parseMasterMatrixCSV } from '../lib/excelImporter';
 
@@ -27,6 +27,23 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
 
   const handleConfig = () => setState(prev => ({ ...prev, view: 'config' }));
 
+  const handleViewAuditDetails = (savedAudit: SavedAudit) => {
+    setState(prev => ({
+      ...prev,
+      view: 'report',
+      audit: {
+        hotelName: savedAudit.hotelName,
+        roomNumber: savedAudit.roomNumber,
+        auditorName: savedAudit.auditorName,
+        roomAttendant: savedAudit.roomAttendant,
+        supervisor: savedAudit.supervisor,
+        date: savedAudit.date,
+        maxScore: savedAudit.maxScore,
+        itemStates: savedAudit.itemStates
+      }
+    }));
+  };
+
   const handleExcelImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -42,12 +59,9 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
       }
 
       setState(prev => {
-        // Merge imported audits with existing ones, preventing exact duplicate IDs
         const existingIds = new Set(prev.savedAudits.map(a => a.id));
         const newAudits = audits.filter(a => !existingIds.has(a.id));
         const updatedSaved = [...newAudits, ...prev.savedAudits].sort((a, b) => b.timestamp - a.timestamp);
-
-        // Update config if valid items found
         const updatedConfig = config.length > 0 ? config : prev.config;
 
         return {
@@ -57,7 +71,7 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
         };
       });
 
-      setImportNotice(`¡Carga exitosa! Se importaron ${totalAuditsImported} auditorías completas y ${totalItemsCount} ítems del Excel.`);
+      setImportNotice(`¡Carga exitosa! Se importaron ${totalAuditsImported} auditorías pasadas y ${totalItemsCount} ítems del Excel.`);
       setTimeout(() => setImportNotice(null), 6000);
     };
     reader.readAsText(file, 'UTF-8');
@@ -154,7 +168,7 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
           </button>
         </div>
 
-        {/* ── Notice Banner upon Excel import ── */}
+        {/* Notice Banner */}
         {importNotice && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 14px',
@@ -166,7 +180,7 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
           </div>
         )}
 
-        {/* ── Row 3: KPIs 2×2 ── */}
+        {/* ── KPIs 2×2 ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: '10px', marginBottom: '16px' }}>
           {[
             { label: 'Total', value: totalAudits, icon: <BarChart3 style={{ width: '16px', height: '16px', color: '#818cf8' }} />, rgb: '99,102,241' },
@@ -190,7 +204,7 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
           ))}
         </div>
 
-        {/* ── Row 4: Action Buttons ── */}
+        {/* ── Action Buttons ── */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
           <button
             onClick={handleNewAudit}
@@ -220,7 +234,7 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
           </button>
         </div>
 
-        {/* ── Row 5: Historial panel ── */}
+        {/* ── Historial panel ── */}
         <div style={{
           background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)',
           borderRadius: '18px', overflow: 'hidden'
@@ -254,7 +268,7 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
             </div>
           </div>
 
-          {/* Empty */}
+          {/* List */}
           {filtered.length === 0 ? (
             <div style={{ padding: '50px 24px', textAlign: 'center' }}>
               <div style={{ width: '60px', height: '60px', borderRadius: '18px', background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
@@ -273,17 +287,24 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
               const pass = audit.finalScore >= audit.maxScore * 0.8;
               const color = scoreColor(pct);
               return (
-                <div key={audit.id} style={{
-                  padding: '14px 16px',
-                  borderBottom: idx < filtered.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-                  display: 'flex', alignItems: 'center', gap: '13px'
-                }}>
+                <div
+                  key={audit.id}
+                  onClick={() => handleViewAuditDetails(audit)}
+                  style={{
+                    padding: '14px 16px',
+                    borderBottom: idx < filtered.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                    display: 'flex', alignItems: 'center', gap: '12px',
+                    cursor: 'pointer', transition: 'background 0.15s',
+                    WebkitTapHighlightColor: 'rgba(255,255,255,0.05)'
+                  }}
+                  className="hover:bg-white/5"
+                >
                   {/* SVG donut */}
-                  <div style={{ flexShrink: 0, position: 'relative', width: '48px', height: '48px' }}>
-                    <svg width="48" height="48" viewBox="0 0 48 48" style={{ transform: 'rotate(-90deg)' }}>
-                      <circle cx="24" cy="24" r="18" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="4" />
-                      <circle cx="24" cy="24" r="18" fill="none" stroke={color} strokeWidth="4"
-                        strokeLinecap="round" strokeDasharray={`${(pct / 100) * 113.1} 113.1`} />
+                  <div style={{ flexShrink: 0, position: 'relative', width: '46px', height: '46px' }}>
+                    <svg width="46" height="46" viewBox="0 0 46 46" style={{ transform: 'rotate(-90deg)' }}>
+                      <circle cx="23" cy="23" r="17" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="4" />
+                      <circle cx="23" cy="23" r="17" fill="none" stroke={color} strokeWidth="4"
+                        strokeLinecap="round" strokeDasharray={`${(pct / 100) * 106.8} 106.8`} />
                     </svg>
                     <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <span style={{ fontSize: '10px', fontWeight: 900, color, lineHeight: 1 }}>{pct}%</span>
@@ -292,12 +313,14 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
 
                   {/* Info */}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '15px', fontWeight: 800, color: '#f1f5f9' }}>Hab. {audit.roomNumber}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '14px', fontWeight: 800, color: '#f1f5f9' }}>
+                        {audit.roomNumber.toLowerCase().startsWith('hab') ? audit.roomNumber : `Hab. ${audit.roomNumber}`}
+                      </span>
                       <span style={{
                         display: 'inline-flex', alignItems: 'center', gap: '3px',
                         fontSize: '9px', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase',
-                        padding: '2px 7px', borderRadius: '6px',
+                        padding: '2px 6px', borderRadius: '5px',
                         background: pass ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
                         color: pass ? '#34d399' : '#f87171',
                         border: `1px solid ${pass ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}`
@@ -309,7 +332,7 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#475569' }}>
                         <User style={{ width: '11px', height: '11px' }} />
-                        Camarera: {audit.roomAttendant || audit.auditorName}
+                        {audit.roomAttendant || audit.auditorName}
                       </span>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#475569' }}>
                         <Calendar style={{ width: '11px', height: '11px' }} />
@@ -319,13 +342,16 @@ export function RoomsDashboardView({ state, setState }: RoomsDashboardViewProps)
                   </div>
 
                   {/* Score */}
-                  <div style={{ flexShrink: 0, textAlign: 'right' }}>
-                    <p style={{ fontSize: '22px', fontWeight: 900, color, margin: '0 0 2px', lineHeight: 1 }}>
-                      {audit.finalScore}<span style={{ fontSize: '11px', color: '#334155' }}>/{audit.maxScore}</span>
-                    </p>
-                    <p style={{ fontSize: '9px', color: '#334155', fontWeight: 600, margin: 0 }}>
-                      {pct >= 90 ? 'Excelente' : pct >= 75 ? 'Aceptable' : 'Deficiente'}
-                    </p>
+                  <div style={{ flexShrink: 0, textAlign: 'right', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div>
+                      <p style={{ fontSize: '20px', fontWeight: 900, color, margin: '0 0 1px', lineHeight: 1 }}>
+                        {audit.finalScore}<span style={{ fontSize: '11px', color: '#334155' }}>/{audit.maxScore}</span>
+                      </p>
+                      <p style={{ fontSize: '9px', color: '#334155', fontWeight: 600, margin: 0 }}>
+                        {pct >= 90 ? 'Excelente' : pct >= 75 ? 'Aceptable' : 'Deficiente'}
+                      </p>
+                    </div>
+                    <ChevronRight style={{ width: '16px', height: '16px', color: '#475569' }} />
                   </div>
                 </div>
               );

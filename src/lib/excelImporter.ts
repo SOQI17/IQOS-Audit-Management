@@ -106,21 +106,24 @@ export function parseMasterMatrixCSV(csvText: string): MultiAuditImportResult {
         const rowLabel = (grid[r]?.[c - 1] || grid[r]?.[0] || grid[r]?.[1] || '').toLowerCase();
         const wholeRow = (grid[r] || []).join(' ').toLowerCase();
 
-        if (rowLabel.includes('hab') || wholeRow.includes('hab')) {
-          if (rowText && !isNaN(Number(rowText)) || rowText.length > 0) {
-            if (!roomNumber && r > 0) roomNumber = rowText;
-          }
+        const isTitleText = rowText.includes('AUDITORIA') || rowText.includes('AUDITORÍA') || rowText.includes('MATRIZ') || rowText.includes('JULIO') || rowText.includes('AGOSTO') || rowText.includes('SEPTIEMBRE') || rowText.includes('ENERO') || rowText.includes('FEBRERO') || rowText.includes('MARZO') || rowText.includes('ABRIL') || rowText.includes('MAYO') || rowText.includes('JUNIO') || rowText.includes('OCTUBRE') || rowText.includes('NOVIEMBRE') || rowText.includes('DICIEMBRE') || rowText.includes('16 AL 31');
+
+        if ((rowLabel.includes('hab:') || rowLabel === 'hab' || wholeRow.includes('hab:')) && !isTitleText) {
+          if (rowText && !roomNumber) roomNumber = rowText.replace(/^hab\.?\s*/i, '').trim();
+        } else if (!roomNumber && rowText && !isTitleText && (rowText.length <= 6 || /^\d+$/.test(rowText))) {
+          roomNumber = rowText;
         }
+
         if (rowLabel.includes('fecha') || wholeRow.includes('fecha')) {
-          if (rowText) dateStr = rowText;
+          if (rowText && !isTitleText && rowText.toLowerCase() !== 'fecha:') dateStr = rowText;
         }
-        if (rowLabel.includes('camarera') || rowLabel.includes('attendant') || wholeRow.includes('camarera')) {
-          if (rowText) roomAttendant = rowText;
+        if (rowLabel.includes('camarera') || wholeRow.includes('camarera')) {
+          if (rowText && !isTitleText && rowText.toLowerCase() !== 'camarera:') roomAttendant = rowText;
         }
         if (rowLabel.includes('supervisor') || wholeRow.includes('supervisor')) {
-          if (rowText) supervisor = rowText;
+          if (rowText && !isTitleText && rowText.toLowerCase() !== 'supervisor:') supervisor = rowText;
         }
-        if (rowText.length > 0) hasMetadata = true;
+        if (rowText.length > 0 && !isTitleText) hasMetadata = true;
       }
 
       // Check if this column has content down the sheet
