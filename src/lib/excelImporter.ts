@@ -39,12 +39,11 @@ export function parseCSVToGrid(csvText: string): string[][] {
 }
 
 /**
- * Robust Multi-Audit Excel Master Matrix CSV Parser
- * Specific to "MATRIZ GENERAL - AUDITORÍA DE HABITACIONES" format:
- * - Col A: Section Title (CLOSET, CAFETERA, HIELERA, CAMA, VELADOR, ESCRITORIO, VENTANAS, CONDICIONES GENERALES, DORMITORIO, BAÑO)
- * - Col B: Item Penalty / Weight (0, 1, 5, 4, 3)
- * - Col C: CRITERIO A EVALUAR (Item description)
- * - Col D/E, F/G, H/I...: Audits (Row 2 = N° Audit, Row 3 = FECHA, Row 4 = HAB, Row 5 = Camarera, Row 6 = Supervisor)
+ * Master Matrix Excel Parser (Specific to "MATRIZ GENERAL - AUDITORÍA DE HABITACIONES")
+ * - Col A (index 0): Section Title (CLOSET, CAFETERA, HIELERA, CAMA, VELADOR, ESCRITORIO, VENTANAS, CONDICIONES GENERALES, DORMITORIO, BAÑO)
+ * - Col B (index 1): Weight / Penalty (0, 1, 5, 4, 3)
+ * - Col C (index 2): Criterion text (CRITERIO A EVALUAR)
+ * - Col D/E, F/G, H/I...: Audit pairs (Code column + Status/Obs column)
  */
 export function parseMasterMatrixCSV(csvText: string): MultiAuditImportResult {
   try {
@@ -53,13 +52,12 @@ export function parseMasterMatrixCSV(csvText: string): MultiAuditImportResult {
       return { config: [], audits: [], totalAuditsImported: 0, totalSectionsCount: 0, totalItemsCount: 0, error: 'El archivo CSV está vacío.' };
     }
 
-    // 1. Find Column indices for Section (Col A), Penalty (Col B), Criterion (Col C)
+    // 1. Column layout detection
     let secCol = 0;
     let penCol = 1;
     let itemCol = 2;
     let headerRowIdx = 0;
 
-    // Search first 15 rows for column labels
     for (let r = 0; r < Math.min(15, grid.length); r++) {
       const row = grid[r];
       row.forEach((cell, c) => {
@@ -78,7 +76,7 @@ export function parseMasterMatrixCSV(csvText: string): MultiAuditImportResult {
       if (itemCol !== 2) break;
     }
 
-    // 2. Identify Checklist Matrix (Items & Sections)
+    // 2. Extract Checklist Items & Sections
     const sectionMap = new Map<string, AuditItemConfig[]>();
     let currentSection = 'General';
     const itemsList: { id: string; sectionTitle: string; text: string; penalty: number; rowIdx: number }[] = [];
@@ -95,7 +93,7 @@ export function parseMasterMatrixCSV(csvText: string): MultiAuditImportResult {
 
       const wholeRowText = row.join(' ').toLowerCase();
 
-      // Skip summary / calculation rows
+      // Skip summary / total rows
       if (
         wholeRowText.includes('total puntos') ||
         wholeRowText.includes('resultado puntos') ||
@@ -105,14 +103,14 @@ export function parseMasterMatrixCSV(csvText: string): MultiAuditImportResult {
         continue;
       }
 
-      // Track section title if provided
+      // Update current section
       if (secVal && secVal !== currentSection && (secVal === secVal.toUpperCase() || secVal.length > 2) && (!itemVal || itemVal.length < 3)) {
         currentSection = secVal;
       } else if (secVal && secVal !== currentSection && itemVal) {
         currentSection = secVal;
       }
 
-      // Valid criterion item check
+      // Add item if text is valid
       if (
         itemVal &&
         itemVal.length >= 3 &&
@@ -151,7 +149,10 @@ export function parseMasterMatrixCSV(csvText: string): MultiAuditImportResult {
 
     const maxScore = itemsList.reduce((acc, i) => acc + i.penalty, 0) || 50;
 
-    // 3. Locate Audit Columns (Columns D/E, F/G, etc.)
+    // 3. Step through Audit Columns in Pairs (Starting at column itemCol + 1)
+    // Pair 1: Col D (3) & Col E (4)
+    // Pair 2: Col F (5) & Col G (6)
+    // Pair 3: Col H (7) & Col I (8) ...
     interface AuditColInfo {
       codeColIdx: number;
       textColIdx: number;
@@ -165,107 +166,81 @@ export function parseMasterMatrixCSV(csvText: string): MultiAuditImportResult {
     const auditCols: AuditColInfo[] = [];
     const maxCols = Math.max(...grid.map(r => r.length));
 
-    for (let c = itemCol + 1; c < maxCols; c++) {
+    for (let c = itemCol + 1; c < maxCols; c += 2) {
       let roomNumber = '';
       let dateStr = '';
       let roomAttendant = '';
       let supervisor = '';
       let auditNumber = '';
-      let isAuditHeader = false;
 
-      // Scan rows 0 to 7 in column `c` and `c+1` for metadata
-      for (let r = 0; r < Math.min(8, grid.length); r++) {
-        const valC = (grid[r]?.[c] || '').trim();
-        const valCNext = (grid[r]?.[c + 1] || '').trim();
-        const combined = (valC + ' ' + valCNext).trim();
-        const lowerComb = combined.toLowerCase();
+      // Check header metadata rows (rows 0 to 6) in column `c` and `c+1`
+      for (let r = 0; r < Math.min(7, grid.length); r++) {
+        const val1 = (grid[r]?.[c] || '').trim();
+        const val2 = (grid[r]?.[c + 1] || '').trim();
+        const valComb = (val1 + ' ' + val2).trim();
+        const lowerComb = valComb.toLowerCase();
 
-        // Check for Audit Number (Row 1/2)
-        if (grid[r]?.[c - 1]?.toLowerCase().includes('auditoria') || grid[r]?.[c - 2]?.toLowerCase().includes('auditoria')) {
-          if (valC && !isNaN(Number(valC))) auditNumber = valC;
+        // Audit Number
+        if (!auditNumber && (val1.match(/^\d+$/) || val2.match(/^\d+$/))) {
+          const numMatch = valComb.match(/\d+/);
+          if (numMatch && r <= 2) auditNumber = numMatch[0];
         }
 
-        // Check for FECHA (Row 2/3)
-        if (lowerComb.includes('julio') || lowerComb.includes('agosto') || lowerComb.includes('septiembre') || lowerComb.includes('2026') || lowerComb.includes('2025')) {
+        // Date (FECHA)
+        if (!dateStr && (lowerComb.includes('julio') || lowerComb.includes('agosto') || lowerComb.includes('septiembre') || lowerComb.includes('2026') || lowerComb.includes('2025'))) {
           if (!lowerComb.includes('16 al 31')) {
-            dateStr = combined.replace(/fecha:?\s*/i, '');
-            isAuditHeader = true;
+            dateStr = valComb.replace(/^fecha:?\s*/i, '');
           }
         }
 
-        // Check for HAB (Row 3/4)
-        if (/^\d{3,4}$/.test(valC) || /^\d{3,4}$/.test(valCNext) || lowerComb.includes('1019') || lowerComb.includes('542') || lowerComb.includes('1205')) {
-          const matchedNum = combined.match(/\d{3,4}/);
-          if (matchedNum && !lowerComb.includes('julio') && !lowerComb.includes('2026')) {
-            roomNumber = matchedNum[0];
-            isAuditHeader = true;
+        // Room Number (HAB)
+        if (!roomNumber) {
+          const numMatch = valComb.match(/\d{3,4}/);
+          if (numMatch && !lowerComb.includes('julio') && !lowerComb.includes('2026') && !lowerComb.includes('2025')) {
+            roomNumber = numMatch[0];
+          } else if (val1.toLowerCase().startsWith('hab') || val2.toLowerCase().startsWith('hab')) {
+            roomNumber = valComb.replace(/^hab\.?\s*/i, '');
           }
         }
 
-        // Check for Camarera (Row 4/5)
-        if (lowerComb.includes('ticona') || lowerComb.includes('monteros') || lowerComb.includes('christopher') || lowerComb.includes('norma')) {
-          roomAttendant = combined.replace(/camarera:?\s*/i, '');
-          isAuditHeader = true;
+        // Room Attendant (Camarera)
+        if (!roomAttendant && (lowerComb.includes('ticona') || lowerComb.includes('monteros') || lowerComb.includes('christopher') || lowerComb.includes('norma') || lowerComb.includes('camarera'))) {
+          if (!lowerComb.includes('auditoria')) {
+            roomAttendant = valComb.replace(/^camarera:?\s*/i, '');
+          }
         }
 
-        // Check for Supervisor (Row 5/6)
-        if (lowerComb.includes('jhonny') || lowerComb.includes('aru') || lowerComb.includes('supervisor')) {
-          supervisor = combined.replace(/supervisor:?\s*/i, '');
-          isAuditHeader = true;
+        // Supervisor
+        if (!supervisor && (lowerComb.includes('jhonny') || lowerComb.includes('aru') || lowerComb.includes('supervisor'))) {
+          if (!lowerComb.includes('auditoria')) {
+            supervisor = valComb.replace(/^supervisor:?\s*/i, '');
+          }
         }
       }
 
-      // Check if column has non-empty compliance text in data rows
-      let evaluationCount = 0;
+      // Check how many items are evaluated in this pair
+      let evaluatedCount = 0;
       itemsList.forEach(item => {
-        const val1 = (grid[item.rowIdx]?.[c] || '').trim();
-        const val2 = (grid[item.rowIdx]?.[c + 1] || '').trim();
-        if (val1 || val2) evaluationCount++;
+        const v1 = (grid[item.rowIdx]?.[c] || '').trim();
+        const v2 = (grid[item.rowIdx]?.[c + 1] || '').trim();
+        if (v1 || v2) evaluatedCount++;
       });
 
-      // Ignore merged header columns like "16 AL 31 DE JULIO 2026" or "AUDITORIA DE HABITACIONES"
-      const headerTitle = ((grid[0]?.[c] || '') + ' ' + (grid[1]?.[c] || '')).toUpperCase();
-      if (headerTitle.includes('16 AL 31 DE JULIO') || headerTitle.includes('AUDITORÍA DE HABITACIONES')) {
-        // Skip header merged title cell
-        continue;
-      }
-
-      if (isAuditHeader || evaluationCount >= 5) {
-        // Check if `c+1` is the observation text column for `c`
-        const textColIdx = c + 1 < maxCols ? c + 1 : c;
-
-        auditCols.push({
-          codeColIdx: c,
-          textColIdx,
-          roomNumber: roomNumber || `Hab ${auditNumber || auditCols.length + 101}`,
-          date: dateStr || new Date().toISOString().split('T')[0],
-          roomAttendant: roomAttendant || 'Encargado General',
-          supervisor: supervisor || 'Jhonny Aru',
-          auditNumber: auditNumber || `${auditCols.length + 1}`
-        });
-
-        if (textColIdx !== c) {
-          c++; // Move past observation column
-        }
-      }
-    }
-
-    // Fallback: If no metadata header was matched, parse pairs of columns after itemCol
-    if (auditCols.length === 0) {
-      for (let c = itemCol + 1; c < maxCols; c += 2) {
+      // If at least 1 item evaluated or header fields found, add audit pair
+      if (evaluatedCount > 0 || roomNumber || auditNumber) {
         auditCols.push({
           codeColIdx: c,
           textColIdx: c + 1 < maxCols ? c + 1 : c,
-          roomNumber: `Hab 1019`,
-          date: new Date().toISOString().split('T')[0],
-          roomAttendant: 'Christopher Ticona',
-          supervisor: 'Jhonny Aru',
-          auditNumber: '1'
+          roomNumber: roomNumber || `${auditCols.length + 101}`,
+          date: dateStr || new Date().toISOString().split('T')[0],
+          roomAttendant: roomAttendant || 'Christopher Ticona',
+          supervisor: supervisor || 'Jhonny Aru',
+          auditNumber: auditNumber || `${auditCols.length + 1}`
         });
       }
     }
 
-    // 4. Construct SavedAudit Records
+    // 4. Construct SavedAudit Objects
     const audits: SavedAudit[] = auditCols.map((ac, aIdx) => {
       const itemStates: Record<string, AuditItemState> = {};
       let totalPenaltyAccum = 0;
@@ -298,13 +273,12 @@ export function parseMasterMatrixCSV(csvText: string): MultiAuditImportResult {
           isCompliant = false;
           totalPenaltyAccum += penalty;
 
-          // Extract observation text
           if (valText && !valText.toLowerCase().startsWith('cumple')) {
             observation = valText;
           } else if (valCode && !['0', '1', '2', '3', '4', '5'].includes(valCode)) {
             observation = valCode;
           } else {
-            observation = 'No cumple con las especificaciones requeridas';
+            observation = 'No cumple con el criterio de evaluación';
           }
         } else {
           if (lowerComb.includes('cumple') && !lowerComb.includes('no cumple')) {
@@ -330,7 +304,7 @@ export function parseMasterMatrixCSV(csvText: string): MultiAuditImportResult {
       const finalScore = Math.max(0, maxScore - totalPenaltyAccum);
 
       return {
-        id: `imported_audit_${Date.now()}_${aIdx}_${ac.roomNumber}`,
+        id: `audit_exp_${aIdx}_${ac.roomNumber}_${cHash(ac.date)}`,
         hotelName: 'Hotel Principal',
         roomNumber: ac.roomNumber.toLowerCase().startsWith('hab') ? ac.roomNumber : `Hab. ${ac.roomNumber}`,
         auditorName: 'Importación Excel',
