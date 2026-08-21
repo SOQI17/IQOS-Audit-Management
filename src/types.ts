@@ -17,6 +17,8 @@ export interface AuditItemState {
   photoBase64: string | null;
   photoUrl?: string | null;
   penalty: number;
+  text?: string;
+  sectionTitle?: string;
 }
 
 export interface AuditState {

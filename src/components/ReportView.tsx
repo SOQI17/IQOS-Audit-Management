@@ -12,7 +12,7 @@ export function ReportView({ state, setState }: ReportViewProps) {
   const { audit, config } = state;
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Map item ID -> item text & section title from config
+  // Map item ID -> item text & section title from config for fallback
   const itemConfigMap = new Map<string, { text: string; sectionTitle: string; defaultPenalty: number }>();
   config.forEach(sec => {
     sec.items.forEach(item => {
@@ -39,7 +39,6 @@ export function ReportView({ state, setState }: ReportViewProps) {
     photoUrl?: string | null;
   }[] = [];
 
-  // Iterate over audit's saved itemStates
   const itemStatesEntries = Object.entries(audit.itemStates || {});
 
   if (itemStatesEntries.length > 0) {
@@ -50,8 +49,10 @@ export function ReportView({ state, setState }: ReportViewProps) {
       const observation = st?.observation || '';
       const photoBase64 = st?.photoBase64 || null;
       const photoUrl = st?.photoUrl || null;
-      const itemText = configInfo?.text || `Criterio #${itemId}`;
-      const sectionTitle = configInfo?.sectionTitle || 'General';
+
+      // Use stored item text/sectionTitle if present, otherwise fallback to config
+      const itemText = st?.text || configInfo?.text || `Criterio #${itemId}`;
+      const sectionTitle = st?.sectionTitle || configInfo?.sectionTitle || 'General';
 
       if (isCompliant === false) {
         totalPenalty += penalty;
@@ -288,7 +289,7 @@ export function ReportView({ state, setState }: ReportViewProps) {
 
                   {item.observation && (
                     <p style={{ fontSize: '12px', color: '#cbd5e1', margin: '6px 0 0', background: 'rgba(0,0,0,0.2)', padding: '8px 10px', borderRadius: '8px', lineHeight: 1.4 }}>
-                      <strong style={{ color: '#94a3b8' }}>Nota:</strong> {item.observation}
+                      <strong style={{ color: '#94a3b8' }}>Observación:</strong> {item.observation}
                     </p>
                   )}
 
