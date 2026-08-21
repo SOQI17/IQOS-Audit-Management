@@ -1,0 +1,10 @@
+{
+  "name": "Hotel Rooms Audit",
+  "description": "Aplicación de auditoría de calidad para habitaciones de hotel con generación de reportes PDF y Word.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
