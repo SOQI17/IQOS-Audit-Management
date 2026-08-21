@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AppState } from '../types';
 import { generatePDF, generateWord } from '../lib/ReportGenerator';
-import { FileText, Download, CheckCircle2, AlertTriangle, ArrowLeft, Loader2, Camera, XCircle } from 'lucide-react';
+import { FileText, Download, CheckCircle2, AlertTriangle, ArrowLeft, Loader2, XCircle } from 'lucide-react';
 
 interface ReportViewProps {
   state: AppState;
@@ -12,9 +12,23 @@ export function ReportView({ state, setState }: ReportViewProps) {
   const { audit, config } = state;
   const [isGenerating, setIsGenerating] = useState(false);
 
-  let totalPenalty = 0, failedItemsCount = 0, passedItemsCount = 0, pendingItemsCount = 0;
+  // Map item ID -> item text & section title from config
+  const itemConfigMap = new Map<string, { text: string; sectionTitle: string; defaultPenalty: number }>();
+  config.forEach(sec => {
+    sec.items.forEach(item => {
+      itemConfigMap.set(item.id, {
+        text: item.text,
+        sectionTitle: sec.title,
+        defaultPenalty: item.defaultPenalty
+      });
+    });
+  });
 
-  // Build item breakdown with section names
+  let totalPenalty = 0;
+  let failedItemsCount = 0;
+  let passedItemsCount = 0;
+  let pendingItemsCount = 0;
+
   const itemsBreakdown: {
     sectionTitle: string;
     itemText: string;
@@ -25,38 +39,69 @@ export function ReportView({ state, setState }: ReportViewProps) {
     photoUrl?: string | null;
   }[] = [];
 
-  config.forEach(section => {
-    section.items.forEach(item => {
-      const st = audit.itemStates[item.id];
+  // Iterate over audit's saved itemStates
+  const itemStatesEntries = Object.entries(audit.itemStates || {});
+
+  if (itemStatesEntries.length > 0) {
+    itemStatesEntries.forEach(([itemId, st]) => {
+      const configInfo = itemConfigMap.get(itemId);
       const isCompliant = st?.isCompliant ?? null;
-      const penalty = st?.penalty ?? item.defaultPenalty;
+      const penalty = st?.penalty ?? configInfo?.defaultPenalty ?? 1;
       const observation = st?.observation || '';
       const photoBase64 = st?.photoBase64 || null;
       const photoUrl = st?.photoUrl || null;
+      const itemText = configInfo?.text || `Criterio #${itemId}`;
+      const sectionTitle = configInfo?.sectionTitle || 'General';
 
-      if (isCompliant === false) { totalPenalty += penalty; failedItemsCount++; }
-      else if (isCompliant === true) passedItemsCount++;
-      else pendingItemsCount++;
+      if (isCompliant === false) {
+        totalPenalty += penalty;
+        failedItemsCount++;
+      } else if (isCompliant === true) {
+        passedItemsCount++;
+      } else {
+        pendingItemsCount++;
+      }
 
-      if (isCompliant !== null) {
+      itemsBreakdown.push({
+        sectionTitle,
+        itemText,
+        isCompliant,
+        penalty,
+        observation,
+        photoBase64,
+        photoUrl
+      });
+    });
+  } else {
+    // Fallback if audit.itemStates is empty: iterate over config
+    config.forEach(section => {
+      section.items.forEach(item => {
+        const st = audit.itemStates[item.id];
+        const isCompliant = st?.isCompliant ?? null;
+        const penalty = st?.penalty ?? item.defaultPenalty;
+        if (isCompliant === false) { totalPenalty += penalty; failedItemsCount++; }
+        else if (isCompliant === true) passedItemsCount++;
+        else pendingItemsCount++;
+
         itemsBreakdown.push({
           sectionTitle: section.title,
           itemText: item.text,
           isCompliant,
           penalty,
-          observation,
-          photoBase64,
-          photoUrl
+          observation: st?.observation || '',
+          photoBase64: st?.photoBase64 || null,
+          photoUrl: st?.photoUrl || null
         });
-      }
+      });
     });
-  });
+  }
 
   const failedItems = itemsBreakdown.filter(i => i.isCompliant === false);
   const passedItems = itemsBreakdown.filter(i => i.isCompliant === true);
 
-  const finalScore = Math.max(0, audit.maxScore - totalPenalty);
-  const percentage = Math.round((finalScore / audit.maxScore) * 100);
+  const maxScore = audit.maxScore || (passedItemsCount + failedItemsCount) || 50;
+  const finalScore = Math.max(0, maxScore - totalPenalty);
+  const percentage = maxScore > 0 ? Math.round((finalScore / maxScore) * 100) : 100;
   const passed = percentage >= 80;
   const scoreColor = percentage >= 80 ? '#10b981' : percentage >= 60 ? '#f59e0b' : '#ef4444';
   const scoreGlow = percentage >= 80 ? 'rgba(16,185,129,0.4)' : percentage >= 60 ? 'rgba(245,158,11,0.4)' : 'rgba(239,68,68,0.4)';
@@ -113,7 +158,7 @@ export function ReportView({ state, setState }: ReportViewProps) {
                 Detalle de Auditoría · {audit.hotelName || 'Hotel Principal'}
               </p>
               <h1 style={{ fontSize: '22px', fontWeight: 900, color: '#f1f5f9', margin: '0 0 4px' }}>
-                Habitación {audit.roomNumber}
+                {audit.roomNumber.toLowerCase().startsWith('hab') ? audit.roomNumber : `Habitación ${audit.roomNumber}`}
               </h1>
               <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 16px', fontWeight: 500 }}>
                 Fecha: {audit.date}
@@ -129,7 +174,7 @@ export function ReportView({ state, setState }: ReportViewProps) {
                 <p style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px', margin: '0 0 4px' }}>Puntaje Obtenido</p>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
                   <span style={{ fontSize: '50px', fontWeight: 900, color: scoreColor, lineHeight: 1 }}>{finalScore}</span>
-                  <span style={{ fontSize: '20px', color: '#475569', fontWeight: 600 }}>/ {audit.maxScore}</span>
+                  <span style={{ fontSize: '20px', color: '#475569', fontWeight: 600 }}>/ {maxScore}</span>
                 </div>
                 <div style={{ width: '140px', background: 'rgba(255,255,255,0.08)', borderRadius: '999px', height: '5px', margin: '10px 0 6px' }}>
                   <div style={{ width: `${percentage}%`, height: '100%', borderRadius: '999px', background: `linear-gradient(90deg,${scoreColor},${scoreColor}99)` }} />
@@ -167,7 +212,7 @@ export function ReportView({ state, setState }: ReportViewProps) {
                 <div style={{ display: 'inline-flex', width: '34px', height: '34px', borderRadius: '10px', background: `rgba(${s.rgb},0.12)`, alignItems: 'center', justifyContent: 'center', color: s.color, marginBottom: '4px' }}>
                   {s.icon}
                 </div>
-                <p style={{ fontSize: '20px', fontWeight: 900, color: '#f1f5f9', margin: '0 0 2px' }}>{s.val}</p>
+                <p style={{ fontSize: '22px', fontWeight: 900, color: '#f1f5f9', margin: '0 0 2px' }}>{s.val}</p>
                 <p style={{ fontSize: '9px', color: '#475569', fontWeight: 600, margin: 0 }}>{s.label}</p>
               </div>
             ))}

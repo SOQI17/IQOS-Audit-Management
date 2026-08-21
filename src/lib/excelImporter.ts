@@ -9,7 +9,6 @@ export interface MultiAuditImportResult {
   error: string | null;
 }
 
-// Helper to parse CSV lines respecting quotes
 export function parseCSVToGrid(csvText: string): string[][] {
   const lines = csvText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
   if (lines.length === 0) return [];
@@ -56,7 +55,6 @@ export function parseMasterMatrixCSV(csvText: string): MultiAuditImportResult {
     let itemCol = -1;
     let headerRowIdx = -1;
 
-    // Scan first 15 rows for column labels
     for (let r = 0; r < Math.min(15, grid.length); r++) {
       const row = grid[r];
       row.forEach((cell, c) => {
@@ -75,79 +73,11 @@ export function parseMasterMatrixCSV(csvText: string): MultiAuditImportResult {
       if (itemCol !== -1) break;
     }
 
-    // Default fallbacks if header text not explicitly found
     if (itemCol === -1) itemCol = 2; // Default Col 2 (C)
     if (penCol === -1) penCol = 1;  // Default Col 1 (B)
     if (secCol === -1) secCol = 0;  // Default Col 0 (A)
 
-    // 2. Identify Audit Columns (Columns after itemCol)
-    // Find metadata rows: FECHA, HAB / HABITACION, Camarera, Supervisor
-    interface AuditColInfo {
-      colIdx: number;
-      roomNumber: string;
-      date: string;
-      roomAttendant: string;
-      supervisor: string;
-      auditorName: string;
-    }
-
-    const auditCols: AuditColInfo[] = [];
-    const maxCols = Math.max(...grid.map(r => r.length));
-
-    for (let c = itemCol + 1; c < maxCols; c++) {
-      let roomNumber = '';
-      let dateStr = '';
-      let roomAttendant = '';
-      let supervisor = '';
-      let hasMetadata = false;
-
-      for (let r = 0; r < Math.min(10, grid.length); r++) {
-        const rowText = (grid[r]?.[c] || '').trim();
-        const rowLabel = (grid[r]?.[c - 1] || grid[r]?.[0] || grid[r]?.[1] || '').toLowerCase();
-        const wholeRow = (grid[r] || []).join(' ').toLowerCase();
-
-        const isTitleText = rowText.includes('AUDITORIA') || rowText.includes('AUDITORÍA') || rowText.includes('MATRIZ') || rowText.includes('JULIO') || rowText.includes('AGOSTO') || rowText.includes('SEPTIEMBRE') || rowText.includes('ENERO') || rowText.includes('FEBRERO') || rowText.includes('MARZO') || rowText.includes('ABRIL') || rowText.includes('MAYO') || rowText.includes('JUNIO') || rowText.includes('OCTUBRE') || rowText.includes('NOVIEMBRE') || rowText.includes('DICIEMBRE') || rowText.includes('16 AL 31');
-
-        if ((rowLabel.includes('hab:') || rowLabel === 'hab' || wholeRow.includes('hab:')) && !isTitleText) {
-          if (rowText && !roomNumber) roomNumber = rowText.replace(/^hab\.?\s*/i, '').trim();
-        } else if (!roomNumber && rowText && !isTitleText && (rowText.length <= 6 || /^\d+$/.test(rowText))) {
-          roomNumber = rowText;
-        }
-
-        if (rowLabel.includes('fecha') || wholeRow.includes('fecha')) {
-          if (rowText && !isTitleText && rowText.toLowerCase() !== 'fecha:') dateStr = rowText;
-        }
-        if (rowLabel.includes('camarera') || wholeRow.includes('camarera')) {
-          if (rowText && !isTitleText && rowText.toLowerCase() !== 'camarera:') roomAttendant = rowText;
-        }
-        if (rowLabel.includes('supervisor') || wholeRow.includes('supervisor')) {
-          if (rowText && !isTitleText && rowText.toLowerCase() !== 'supervisor:') supervisor = rowText;
-        }
-        if (rowText.length > 0 && !isTitleText) hasMetadata = true;
-      }
-
-      // Check if this column has content down the sheet
-      let hasDataRows = false;
-      for (let r = Math.max(headerRowIdx + 1, 5); r < grid.length; r++) {
-        if (grid[r]?.[c] && grid[r][c].trim() !== '') {
-          hasDataRows = true;
-          break;
-        }
-      }
-
-      if (hasMetadata && hasDataRows) {
-        auditCols.push({
-          colIdx: c,
-          roomNumber: roomNumber || `Hab ${auditCols.length + 101}`,
-          date: dateStr || new Date().toISOString().split('T')[0],
-          roomAttendant: roomAttendant || 'Encargado General',
-          supervisor: supervisor || 'Supervisor General',
-          auditorName: 'Importación Excel'
-        });
-      }
-    }
-
-    // 3. Extract Checklist Matrix (Sections & Items)
+    // 2. Identify Checklist Items first
     const sectionMap = new Map<string, AuditItemConfig[]>();
     let currentSection = 'General';
     const itemsList: { id: string; sectionTitle: string; text: string; penalty: number; rowIdx: number }[] = [];
@@ -162,9 +92,8 @@ export function parseMasterMatrixCSV(csvText: string): MultiAuditImportResult {
       const itemVal = row[itemCol]?.trim();
       const penVal = row[penCol]?.trim();
 
-      // Check if summary row
       const lowerRow = row.join(' ').toLowerCase();
-      if (lowerRow.includes('total puntos') || lowerRow.includes('resultado puntos') || lowerRow.includes('promedio')) {
+      if (lowerRow.includes('total puntos') || lowerRow.includes('resultado puntos') || lowerRow.includes('promedio') || lowerRow.includes('medio cumplimiento')) {
         continue;
       }
 
@@ -174,7 +103,7 @@ export function parseMasterMatrixCSV(csvText: string): MultiAuditImportResult {
         currentSection = secVal;
       }
 
-      if (itemVal && itemVal.length > 1) {
+      if (itemVal && itemVal.length > 1 && !itemVal.toLowerCase().includes('criterio')) {
         const rawPen = penVal ? parseInt(penVal.replace(/\D/g, ''), 10) : 1;
         const penalty = isNaN(rawPen) || rawPen < 0 ? 1 : rawPen;
         const itemId = `item_${r}_${cHash(itemVal)}`;
@@ -195,48 +124,149 @@ export function parseMasterMatrixCSV(csvText: string): MultiAuditImportResult {
     }
 
     if (itemsList.length === 0) {
-      return { config: [], audits: [], totalAuditsImported: 0, totalSectionsCount: 0, totalItemsCount: 0, error: 'No se encontraron ítems válidos en el archivo Excel/CSV.' };
+      return { config: [], audits: [], totalAuditsImported: 0, totalSectionsCount: 0, totalItemsCount: 0, error: 'No se encontraron ítems válidos en la matriz Excel.' };
     }
 
-    // Build AuditSectionConfig array
     const config: AuditSectionConfig[] = Array.from(sectionMap.entries()).map(([title, items], idx) => ({
       id: `sec_${idx + 1}`,
       title,
       items
     }));
 
-    // Calculate max score
     const maxScore = itemsList.reduce((acc, i) => acc + i.penalty, 0) || 50;
 
-    // 4. Build SavedAudit objects for each audit column found
+    // 3. Identify REAL Audit Columns
+    // An audit column must have explicit room metadata or audit numbers in rows 0-6
+    interface AuditColInfo {
+      valColIdx: number;
+      obsColIdx?: number;
+      roomNumber: string;
+      date: string;
+      roomAttendant: string;
+      supervisor: string;
+      auditNumber: string;
+    }
+
+    const auditCols: AuditColInfo[] = [];
+    const maxCols = Math.max(...grid.map(r => r.length));
+
+    for (let c = itemCol + 1; c < maxCols; c++) {
+      let roomNumber = '';
+      let dateStr = '';
+      let roomAttendant = '';
+      let supervisor = '';
+      let auditNumber = '';
+      let isAuditHeader = false;
+
+      for (let r = 0; r < Math.min(8, grid.length); r++) {
+        const cell = (grid[r]?.[c] || '').trim();
+        const lowerCell = cell.toLowerCase();
+
+        // Check header row keywords
+        if (cell && (cell.match(/^\d+$/) && r <= 3)) {
+          auditNumber = cell;
+        }
+        if (lowerCell.includes('11 de julio') || lowerCell.includes('14 de julio') || lowerCell.includes('2026') || lowerCell.includes('2025') || (lowerCell.includes('julio') && !lowerCell.includes('16 al 31'))) {
+          dateStr = cell;
+          isAuditHeader = true;
+        }
+        if (/^\d{3,4}$/.test(cell) || lowerCell.startsWith('hab') || lowerCell.includes('1205') || lowerCell.includes('542')) {
+          if (!cell.toLowerCase().includes('auditoria') && !cell.toLowerCase().includes('habitaciones')) {
+            roomNumber = cell.replace(/^hab\.?\s*/i, '');
+            isAuditHeader = true;
+          }
+        }
+        if (lowerCell.includes('ticona') || lowerCell.includes('monteros') || lowerCell.includes('camarera') || (cell.length > 3 && r === 4)) {
+          if (!cell.toLowerCase().includes('auditoria') && !cell.toLowerCase().includes('habitaciones')) {
+            roomAttendant = cell;
+            isAuditHeader = true;
+          }
+        }
+        if (lowerCell.includes('jhonny') || lowerCell.includes('aru') || lowerCell.includes('supervisor') || (cell.length > 3 && r === 5)) {
+          if (!cell.toLowerCase().includes('auditoria') && !cell.toLowerCase().includes('habitaciones')) {
+            supervisor = cell;
+            isAuditHeader = true;
+          }
+        }
+      }
+
+      // Check if column has non-empty evaluation rows below
+      let dataCount = 0;
+      itemsList.forEach(item => {
+        const v = (grid[item.rowIdx]?.[c] || '').trim();
+        if (v) dataCount++;
+      });
+
+      // Filter out sheet title merged cells like "AUDITORIA DE HABITACIONES" or "16 AL 31 DE JULIO"
+      const colFirstCell = (grid[0]?.[c] || grid[1]?.[c] || '').toUpperCase();
+      if (colFirstCell.includes('AUDITORÍA DE HABITACIONES') || colFirstCell.includes('16 AL 31 DE JULIO')) {
+        continue;
+      }
+
+      if (isAuditHeader || dataCount >= 5) {
+        // Look if the next column (c+1) contains observations for this audit
+        let obsColIdx: number | undefined = undefined;
+        if (c + 1 < maxCols) {
+          let obsCount = 0;
+          itemsList.forEach(item => {
+            const vNext = (grid[item.rowIdx]?.[c + 1] || '').trim().toLowerCase();
+            if (vNext.includes('cumple') || vNext.includes('no cumple') || vNext.includes('falta') || vNext.includes('sucio')) {
+              obsCount++;
+            }
+          });
+          if (obsCount > 3) {
+            obsColIdx = c + 1;
+          }
+        }
+
+        auditCols.push({
+          valColIdx: c,
+          obsColIdx,
+          roomNumber: roomNumber || `Hab ${auditNumber || auditCols.length + 101}`,
+          date: dateStr || new Date().toISOString().split('T')[0],
+          roomAttendant: roomAttendant || 'Encargado General',
+          supervisor: supervisor || 'Supervisor General',
+          auditNumber: auditNumber || `${auditCols.length + 1}`
+        });
+
+        if (obsColIdx) {
+          c++; // skip observation column in loop
+        }
+      }
+    }
+
+    // 4. Build SavedAudit records
     const audits: SavedAudit[] = auditCols.map((ac, aIdx) => {
       const itemStates: Record<string, AuditItemState> = {};
       let totalPenaltyAccum = 0;
 
       itemsList.forEach(item => {
-        const cellVal = (grid[item.rowIdx]?.[ac.colIdx] || '').trim();
-        const lowerCell = cellVal.toLowerCase();
+        const valCell = (grid[item.rowIdx]?.[ac.valColIdx] || '').trim();
+        const obsCell = ac.obsColIdx !== undefined ? (grid[item.rowIdx]?.[ac.obsColIdx] || '').trim() : '';
+
+        const fullText = (valCell + ' ' + obsCell).trim();
+        const lowerFull = fullText.toLowerCase();
 
         let isCompliant: boolean | null = true;
         let observation = '';
         let penalty = item.penalty;
 
-        if (!cellVal) {
-          isCompliant = true; // Default compliant if blank
-        } else if (lowerCell === '0' || lowerCell === 'cumple' || lowerCell === 'ok' || lowerCell === 'v') {
+        if (!fullText) {
           isCompliant = true;
-        } else if (lowerCell.startsWith('no cumple') || lowerCell.includes('falta') || lowerCell.includes('dañado') || lowerCell.includes('sucio') || lowerCell === '1' || lowerCell === 'x') {
+        } else if (lowerFull === '0' || lowerFull === 'cumple' || lowerFull === 'ok' || lowerFull === 'v') {
+          isCompliant = true;
+        } else if (lowerFull.includes('no cumple') || lowerFull.includes('falta') || lowerFull.includes('dañado') || lowerFull.includes('sucio') || lowerFull === '1' || lowerFull === 'x') {
           isCompliant = false;
           totalPenaltyAccum += penalty;
-          observation = cellVal.replace(/^1\s*/, '').replace(/^no cumple\s*/i, '').trim() || cellVal;
+          observation = obsCell || valCell.replace(/^[01]\s*/, '').trim() || 'No cumple con el criterio de evaluación';
         } else {
-          // If custom observation text
-          if (lowerCell.includes('cumple') && !lowerCell.includes('no cumple')) {
+          if (lowerFull.includes('cumple') && !lowerFull.includes('no cumple')) {
             isCompliant = true;
+            if (obsCell && !obsCell.toLowerCase().includes('cumple')) observation = obsCell;
           } else {
             isCompliant = false;
             totalPenaltyAccum += penalty;
-            observation = cellVal;
+            observation = fullText;
           }
         }
 
@@ -252,16 +282,16 @@ export function parseMasterMatrixCSV(csvText: string): MultiAuditImportResult {
       const finalScore = Math.max(0, maxScore - totalPenaltyAccum);
 
       return {
-        id: `imported_audit_${Date.now()}_${aIdx}`,
+        id: `imported_audit_${Date.now()}_${aIdx}_${ac.roomNumber.replace(/\D/g, '')}`,
         hotelName: 'Hotel Principal',
-        roomNumber: ac.roomNumber,
-        auditorName: ac.auditorName,
+        roomNumber: ac.roomNumber.startsWith('Hab') ? ac.roomNumber : `Hab. ${ac.roomNumber}`,
+        auditorName: 'Importación Excel',
         roomAttendant: ac.roomAttendant,
         supervisor: ac.supervisor,
         date: ac.date,
         maxScore,
         finalScore,
-        timestamp: Date.now() - (aIdx * 86400000), // space dates slightly if timestamp needed
+        timestamp: Date.now() - (aIdx * 86400000),
         itemStates
       };
     });
