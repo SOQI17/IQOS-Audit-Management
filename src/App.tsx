@@ -64,7 +64,22 @@ export default function App() {
 
   useEffect(() => {
     if (state.savedAudits.length > 0) {
-      localStorage.setItem('qaudit_saved_audits', JSON.stringify(state.savedAudits));
+      try {
+        localStorage.setItem('qaudit_saved_audits', JSON.stringify(state.savedAudits));
+      } catch (err) {
+        console.warn('localStorage quota exceeded. Storing lightweight version without photos:', err);
+        try {
+          const lightAudits = state.savedAudits.map(a => ({
+            ...a,
+            itemStates: Object.fromEntries(
+              Object.entries(a.itemStates || {}).map(([k, v]) => [k, { ...v, photoBase64: null }])
+            )
+          }));
+          localStorage.setItem('qaudit_saved_audits', JSON.stringify(lightAudits));
+        } catch (e) {
+          console.error('Could not save to localStorage even with lightweight version:', e);
+        }
+      }
     }
   }, [state.savedAudits]);
 
